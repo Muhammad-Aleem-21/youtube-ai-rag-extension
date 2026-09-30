@@ -10,4 +10,6 @@ tiktoken
 huggingface_hub
 openai
 numpy
+groq
+sentence-transformers
 
