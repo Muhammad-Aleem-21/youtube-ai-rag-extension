@@ -12,4 +12,6 @@ openai
 numpy
 groq
 sentence-transformers
+tavily-python
+langgraph
 
