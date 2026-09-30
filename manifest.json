@@ -3,9 +3,11 @@
 
   "name": "YouTube AI Assistant",
 
-  "version": "1.0.0",
+  "version": "1.1.0",
 
   "description": "Ask questions about the YouTube video you are watching.",
+
+  "minimum_chrome_version": "111",
 
   "permissions": [
     "storage"
@@ -13,7 +15,7 @@
 
   "host_permissions": [
     "https://www.youtube.com/*",
-    "http://127.0.0.1:8000/*"
+    "https://youtube-ai-rag-extension-production.up.railway.app/*"
   ],
 
   "background": {
@@ -26,6 +28,19 @@
   },
 
   "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*"
+      ],
+
+      "js": [
+        "content/page-bridge.js"
+      ],
+
+      "run_at": "document_start",
+
+      "world": "MAIN"
+    },
     {
       "matches": [
         "https://www.youtube.com/*"

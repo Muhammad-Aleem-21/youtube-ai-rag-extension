@@ -1,6 +1,21 @@
+# fastapi
+# uvicorn
+# youtube-transcript-api
+# langchain
+# langchain-community
+# langchain-openai
+# faiss-cpu
+# python-dotenv
+# tiktoken
+# huggingface_hub
+# openai
+# numpy
+# groq
+# sentence-transformers
+# tavily-python
+# langgraph
 fastapi
 uvicorn
-youtube-transcript-api
 langchain
 langchain-community
 langchain-openai
@@ -14,4 +29,3 @@ groq
 sentence-transformers
 tavily-python
 langgraph
-
