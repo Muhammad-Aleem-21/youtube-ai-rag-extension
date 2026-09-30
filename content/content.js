@@ -539,6 +539,7 @@ let chatWindow = null;
 let transcriptLoadedForVideo = null; // video ID whose transcript is confirmed on the backend
 let transcriptInFlight = null; // { videoId, promise }
 let chatHistory = [];
+let transcriptFailedFor = null;
 
 const BRIDGE_REQUEST = "YT_AI_TRANSCRIPT_REQUEST";
 const BRIDGE_RESPONSE = "YT_AI_TRANSCRIPT_RESPONSE";
@@ -921,40 +922,25 @@ function ensureTranscript(videoId, force = false) {
 ========================= */
 
 async function askBackend(videoId, question, history) {
-  const ready = await ensureTranscript(videoId);
+  // Cheap status check each time; re-uploads if the server lost the transcript.
+  // A transcript failure never blocks chat (general questions use web search).
+  if (transcriptFailedFor !== videoId) {
+    transcriptLoadedForVideo = null;
 
-  if (!ready.ok) {
-    return { success: false, error: ready.error };
+    const ready = await ensureTranscript(videoId);
+
+    if (!ready.ok) {
+      console.warn("[YT-AI] Continuing without transcript:", ready.error);
+      transcriptFailedFor = videoId;
+    }
   }
 
-  let response = await sendToBackground({
+  return sendToBackground({
     type: "CHAT",
     videoId: videoId,
     question: question,
     history: history,
   });
-
-  // Server restarted / cache evicted → resend the transcript once and retry.
-  if (!response.success && response.code === "TRANSCRIPT_NOT_LOADED") {
-    console.warn("[YT-AI] Server lost the transcript; re-uploading.");
-
-    transcriptLoadedForVideo = null;
-
-    const reload = await ensureTranscript(videoId, true);
-
-    if (!reload.ok) {
-      return { success: false, error: reload.error };
-    }
-
-    response = await sendToBackground({
-      type: "CHAT",
-      videoId: videoId,
-      question: question,
-      history: history,
-    });
-  }
-
-  return response;
 }
 
 function sendMessage() {
@@ -1214,6 +1200,7 @@ function checkVideo() {
     transcriptLoadedForVideo = null;
 
     transcriptInFlight = null;
+    transcriptFailedFor = null;
 
     chatHistory = [];
 
