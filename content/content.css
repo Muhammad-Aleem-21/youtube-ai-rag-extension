@@ -1,0 +1,462 @@
+/* =========================
+   AI BUTTON
+========================= */
+
+#youtube-ai-button {
+
+  position: fixed;
+
+  right: 24px;
+  bottom: 90px;
+
+  width: 56px;
+  height: 56px;
+
+  border: none;
+  border-radius: 50%;
+
+  background: #111827;
+
+  color: white;
+
+  font-size: 25px;
+
+  cursor: pointer;
+
+  z-index: 999999;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  box-shadow:
+    0 4px 15px rgba(0, 0, 0, 0.3);
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+#youtube-ai-button:hover {
+
+  transform: scale(1.08);
+
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+
+/* =========================
+   CHAT WINDOW
+========================= */
+
+#youtube-ai-chat {
+
+  position: fixed;
+
+  right: 24px;
+  bottom: 160px;
+
+  width: 380px;
+  height: 560px;
+
+  background: #ffffff;
+
+  border-radius: 16px;
+
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.25);
+
+  z-index: 999998;
+
+  display: none;
+
+  flex-direction: column;
+
+  overflow: hidden;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  color: #111827;
+}
+
+
+/* =========================
+   HEADER
+========================= */
+
+.youtube-ai-header {
+
+  height: 65px;
+
+  padding: 0 16px;
+
+  background: #111827;
+
+  color: white;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  flex-shrink: 0;
+}
+
+
+.youtube-ai-title {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+}
+
+
+.youtube-ai-icon {
+
+  font-size: 28px;
+}
+
+
+.youtube-ai-name {
+
+  font-size: 16px;
+
+  font-weight: 600;
+}
+
+
+.youtube-ai-status {
+
+  margin-top: 3px;
+
+  font-size: 11px;
+
+  color: #86efac;
+}
+
+
+.youtube-ai-close {
+
+  width: 32px;
+  height: 32px;
+
+  border: none;
+
+  background: transparent;
+
+  color: white;
+
+  font-size: 25px;
+
+  cursor: pointer;
+
+  border-radius: 6px;
+}
+
+
+.youtube-ai-close:hover {
+
+  background: rgba(255, 255, 255, 0.1);
+}
+
+
+/* =========================
+   VIDEO INFORMATION
+========================= */
+
+.youtube-ai-video {
+
+  padding: 10px 14px;
+
+  background: #f3f4f6;
+
+  border-bottom:
+    1px solid #e5e7eb;
+}
+
+
+.youtube-ai-video-label {
+
+  font-size: 10px;
+
+  color: #6b7280;
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.5px;
+
+  margin-bottom: 3px;
+}
+
+
+.youtube-ai-video-id {
+
+  font-size: 12px;
+
+  color: #374151;
+
+  font-family: monospace;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+
+/* =========================
+   MESSAGES
+========================= */
+
+.youtube-ai-messages {
+
+  flex: 1;
+
+  padding: 15px;
+
+  overflow-y: auto;
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 10px;
+
+  background: #ffffff;
+}
+
+
+.youtube-ai-message {
+
+  max-width: 82%;
+
+  padding: 10px 13px;
+
+  border-radius: 12px;
+
+  font-size: 13px;
+
+  line-height: 1.5;
+
+  word-wrap: break-word;
+}
+
+
+.ai-message {
+
+  align-self: flex-start;
+
+  background: #f3f4f6;
+
+  color: #1f2937;
+
+  border-bottom-left-radius: 4px;
+}
+
+
+.user-message {
+
+  align-self: flex-end;
+
+  background: #111827;
+
+  color: white;
+
+  border-bottom-right-radius: 4px;
+}
+
+
+/* =========================
+   INPUT
+========================= */
+
+.youtube-ai-input-area {
+
+  padding: 12px;
+
+  border-top:
+    1px solid #e5e7eb;
+
+  display: flex;
+
+  gap: 8px;
+
+  background: white;
+}
+
+
+#youtube-ai-input {
+
+  flex: 1;
+
+  resize: none;
+
+  border:
+    1px solid #d1d5db;
+
+  border-radius: 10px;
+
+  padding: 10px;
+
+  font-size: 13px;
+
+  font-family: Arial, sans-serif;
+
+  outline: none;
+
+  min-height: 20px;
+
+  max-height: 100px;
+}
+
+
+#youtube-ai-input:focus {
+
+  border-color: #6b7280;
+
+  box-shadow:
+    0 0 0 2px rgba(17, 24, 39, 0.08);
+}
+
+
+#youtube-ai-send {
+
+  width: 40px;
+
+  height: 40px;
+
+  border: none;
+
+  border-radius: 10px;
+
+  background: #111827;
+
+  color: white;
+
+  cursor: pointer;
+
+  font-size: 18px;
+
+  align-self: flex-end;
+}
+
+
+#youtube-ai-send:hover {
+
+  background: #374151;
+}
+
+
+/* =========================
+   SCROLLBAR
+========================= */
+
+.youtube-ai-messages::-webkit-scrollbar {
+
+  width: 6px;
+}
+
+
+.youtube-ai-messages::-webkit-scrollbar-track {
+
+  background: transparent;
+}
+
+
+.youtube-ai-messages::-webkit-scrollbar-thumb {
+
+  background: #d1d5db;
+
+  border-radius: 10px;
+}
+
+
+/* =========================
+   MOBILE
+========================= */
+
+@media (max-width: 600px) {
+
+  #youtube-ai-chat {
+
+    right: 10px;
+    left: 10px;
+
+    bottom: 130px;
+
+    width: auto;
+
+    height: 70vh;
+  }
+
+  #youtube-ai-button {
+
+    right: 15px;
+    bottom: 70px;
+  }
+}
+
+
+.youtube-ai-timestamps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+
+.youtube-ai-timestamps button {
+  border: none;
+  border-radius: 6px;
+  padding: 5px 9px;
+  cursor: pointer;
+  font-size: 12px;
+  background: #272727;
+  color: #ffffff;
+}
+
+
+.youtube-ai-timestamps button:hover {
+  background: #3f3f3f;
+}
+
+
+.youtube-ai-answer {
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+
+.youtube-ai-web-sources {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.youtube-ai-web-label {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.youtube-ai-web-sources a {
+  font-size: 12px;
+  color: #3ea6ff;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.youtube-ai-web-sources a:hover {
+  text-decoration: underline;
+}

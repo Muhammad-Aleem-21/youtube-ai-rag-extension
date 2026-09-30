@@ -1,0 +1,37 @@
+body {
+  margin: 0;
+
+  width: 320px;
+
+  font-family: Arial, sans-serif;
+
+  background: #f9fafb;
+}
+
+.container {
+  padding: 20px;
+}
+
+h1 {
+  margin-top: 0;
+
+  font-size: 20px;
+}
+
+p {
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+#status {
+  margin-top: 15px;
+
+  padding: 10px;
+
+  background: #e5e7eb;
+
+  border-radius: 8px;
+
+  font-size: 13px;
+}

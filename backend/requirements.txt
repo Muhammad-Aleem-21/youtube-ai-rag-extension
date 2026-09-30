@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+youtube-transcript-api
+langchain
+langchain-community
+langchain-openai
+faiss-cpu
+python-dotenv
+tiktoken
+huggingface_hub
+openai
+numpy
+
