@@ -1,16 +1,15 @@
+
 from pathlib import Path
 from dotenv import load_dotenv
 import os
 
-import re
-from typing import Optional
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from router import router
 
-from rag import store_transcript, get_rag_data, has_rag_data
+from rag import fetch_transcript
 
 
 # --------------------------------------------------
@@ -68,34 +67,6 @@ class ChatRequest(BaseModel):
     question: str
     history: list[ChatMessage] = []
 
-class TranscriptSegment(BaseModel):
-
-    text: str
-    start: float
-    duration: float = 0.0
-
-
-class TranscriptUpload(BaseModel):
-
-    video_id: str
-    transcript: list[TranscriptSegment]
-    language: Optional[str] = None
-    language_code: Optional[str] = None
-    is_generated: Optional[bool] = None
-
-
-CLIENT_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
-
-
-def make_cache_key(client_id, video_id):
-    # Per-extension-install cache key so nobody can overwrite another user's transcript
-    if not client_id or not CLIENT_ID_PATTERN.match(client_id):
-        raise HTTPException(
-            status_code=400,
-            detail="Missing or invalid X-Client-Id header."
-        )
-    return f"{client_id}:{video_id}"
-
 
 # --------------------------------------------------
 # Root
@@ -115,60 +86,56 @@ def root():
 # Transcript API Endpoint
 # --------------------------------------------------
 
-@app.get("/transcript/{video_id}/status")
-def transcript_status(
-    video_id: str,
-    x_client_id: Optional[str] = Header(default=None)
-):
-    key = make_cache_key(x_client_id, video_id.strip())
+@app.get("/transcript/{video_id}")
+def get_transcript(video_id: str):
 
-    if not has_rag_data(key):
-        return {"video_id": video_id, "ready": False}
-
-    data = get_rag_data(key)
-
-    return {
-        "video_id": video_id,
-        "ready": True,
-        "count": data.get("count"),
-    }
+    video_id = video_id.strip()
 
 
-@app.post("/transcript")
-def upload_transcript(
-    request: TranscriptUpload,
-    x_client_id: Optional[str] = Header(default=None)
-):
-    video_id = request.video_id.strip()
-    key = make_cache_key(x_client_id, video_id)
+    if not video_id:
 
-    data = store_transcript(
-        key,
-        [s.model_dump() for s in request.transcript],
-        request.language,
-        request.language_code,
-        request.is_generated,
+        raise HTTPException(
+            status_code=400,
+            detail="Video ID is required."
+        )
+
+
+    transcript = fetch_transcript(
+        video_id
     )
+
+
+    snippets = []
+
+
+    for item in transcript:
+
+        snippets.append(
+            {
+                "text": item.text,
+                "start": item.start,
+                "duration": item.duration
+            }
+        )
+
 
     return {
         "success": True,
         "video_id": video_id,
-        "count": data["count"],
-        "chunks": len(data["chunks"]),
-        "language": data["language"],
-        "language_code": data["language_code"],
-        "is_generated": data["is_generated"],
+        "language": transcript.language,
+        "language_code": transcript.language_code,
+        "is_generated": transcript.is_generated,
+        "count": len(snippets),
+        "transcript": snippets
     }
+
 
 # --------------------------------------------------
 # Chat Endpoint
 # --------------------------------------------------
 
 @app.post("/chat")
-def chat(
-    request: ChatRequest,
-    x_client_id: Optional[str] = Header(default=None)
-    ):
+def chat(request: ChatRequest):
 
     try:
 
@@ -194,7 +161,6 @@ def chat(
                 status_code=400,
                 detail="Question is required."
             )
-        cache_key = make_cache_key(x_client_id, video_id)
 
 
         print(
@@ -206,7 +172,7 @@ def chat(
 
         result = router.invoke({
             "question": question,
-            "video_id": cache_key,      # was: video_id
+            "video_id": video_id,
             "history": request.history,
         })
 
@@ -239,8 +205,8 @@ def chat(
         )
 
         sources = []
-        #########################################
-        ####################################3
+#########################################
+####################################3
         if chunks and not said_unknown:
             best = max(chunks, key=score_of)
             sources = [{
@@ -296,272 +262,4 @@ def chat(
             status_code=500,
             detail=str(error)
         )
-
-
-
-
-########################
-# from pathlib import Path
-# from dotenv import load_dotenv
-# import os
-
-# from fastapi import FastAPI, HTTPException
-# from fastapi.middleware.cors import CORSMiddleware
-# from pydantic import BaseModel
-
-# from router import router
-
-# from rag import fetch_transcript
-
-
-# # --------------------------------------------------
-# # Environment
-# # --------------------------------------------------
-
-# BASE_DIR = Path(__file__).resolve().parent
-
-# load_dotenv(
-#     BASE_DIR / ".env",
-#     override=True
-# )
-
-
-# # --------------------------------------------------
-# # FastAPI
-# # --------------------------------------------------
-
-# app = FastAPI(
-#     title="YouTube AI Assistant API",
-#     description="RAG backend for the YouTube AI Chrome Extension",
-#     version="2.0.0"
-# )
-
-
-# # --------------------------------------------------
-# # CORS
-# # --------------------------------------------------
-
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origin_regex=(
-#         r"^(https://www\.youtube\.com|"
-#         r"chrome-extension://.*)$"
-#     ),
-#     allow_credentials=False,
-#     allow_methods=["GET", "POST"],
-#     allow_headers=["*"],
-# )
-
-
-# # --------------------------------------------------
-# # Request Models
-# # --------------------------------------------------
-
-# class ChatMessage(BaseModel):
-
-#     role: str
-#     content: str
-
-
-# class ChatRequest(BaseModel):
-
-#     video_id: str
-#     question: str
-#     history: list[ChatMessage] = []
-
-
-# # --------------------------------------------------
-# # Root
-# # --------------------------------------------------
-
-# @app.get("/")
-# def root():
-
-#     return {
-#         "message": (
-#             "YouTube AI Assistant API is running"
-#         )
-#     }
-
-
-# # --------------------------------------------------
-# # Transcript API Endpoint
-# # --------------------------------------------------
-
-# @app.get("/transcript/{video_id}")
-# def get_transcript(video_id: str):
-
-#     video_id = video_id.strip()
-
-
-#     if not video_id:
-
-#         raise HTTPException(
-#             status_code=400,
-#             detail="Video ID is required."
-#         )
-
-
-#     transcript = fetch_transcript(
-#         video_id
-#     )
-
-
-#     snippets = []
-
-
-#     for item in transcript:
-
-#         snippets.append(
-#             {
-#                 "text": item.text,
-#                 "start": item.start,
-#                 "duration": item.duration
-#             }
-#         )
-
-
-#     return {
-#         "success": True,
-#         "video_id": video_id,
-#         "language": transcript.language,
-#         "language_code": transcript.language_code,
-#         "is_generated": transcript.is_generated,
-#         "count": len(snippets),
-#         "transcript": snippets
-#     }
-
-
-# # --------------------------------------------------
-# # Chat Endpoint
-# # --------------------------------------------------
-
-# @app.post("/chat")
-# def chat(request: ChatRequest):
-
-#     try:
-
-#         video_id = request.video_id.strip()
-#         question = request.question.strip()
-
-
-#         # --------------------------------------------
-#         # Validate Input
-#         # --------------------------------------------
-
-#         if not video_id:
-
-#             raise HTTPException(
-#                 status_code=400,
-#                 detail="Video ID is required."
-#             )
-
-
-#         if not question:
-
-#             raise HTTPException(
-#                 status_code=400,
-#                 detail="Question is required."
-#             )
-
-
-#         print(
-#             f"\nRAG request:"
-#             f"\nVideo: {video_id}"
-#             f"\nQuestion: {question}"
-#         )
-
-
-#         result = router.invoke({
-#             "question": question,
-#             "video_id": video_id,
-#             "history": request.history,
-#         })
-
-#         answer = result.get("result") or "I couldn't produce an answer."
-#         chunks = result.get("retrieved_chunks", [])
-#         flow = result.get("flow", [])
-
-#         # ----------------------------------------------
-#         # Terminal flow summary
-#         # ----------------------------------------------
-#         print("\n" + "=" * 50)
-#         print("[FLOW SUMMARY]")
-#         print("  " + " → ".join(["START"] + flow + ["END"]))
-#         print(f"  Tool rounds used: {result.get('tool_rounds', 0)}")
-#         print("=" * 50 + "\n")
-
-#         # ----------------------------------------------
-#         # Citation / source
-#         # ----------------------------------------------
-#         def score_of(c):
-#             return c.get("score", c.get("keyword_score", 0))
-
-#         said_unknown = any(
-#             phrase in answer.lower()
-#             for phrase in (
-#                 "don't know based on",
-#                 "do not know based on",
-                
-#             )
-#         )
-
-#         sources = []
-# #########################################
-# ####################################3
-#         if chunks and not said_unknown:
-#             best = max(chunks, key=score_of)
-#             sources = [{
-#                 "type": "transcript",
-#                 "text": best["text"],
-#                 "start": best["start"],
-#                 "end": best["end"],
-#                 "score": score_of(best),
-#             }]
-#         elif result.get("web_sources"):
-#             sources = [
-#                 {
-#                     "type": "web",
-#                     "title": s["title"],
-#                     "url": s["url"],
-#                 }
-#                 for s in result["web_sources"][:3]      # top 3 links
-#             ]
-
-#         return {
-#             "success": True,
-#             "video_id": video_id,
-#             "question": question,
-#             "answer": answer,
-#             "sources": sources,
-#             "flow": flow,
-#         }
-
-#         # --------------------------------------------
-#         # Unexpected Route
-#         # --------------------------------------------
-
-#         # raise HTTPException(
-#         #     status_code=500,
-#         #     detail=f"Unknown route: {route}"
-#         # )
-
-
-#     except HTTPException:
-
-#         raise
-
-
-#     except Exception as error:
-
-#         print(
-#             "CHAT ERROR:",
-#             repr(error)
-#         )
-
-
-#         raise HTTPException(
-#             status_code=500,
-#             detail=str(error)
-#         )
 
