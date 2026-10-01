@@ -9,7 +9,6 @@ from pydantic import BaseModel
 
 from router import router
 
-from rag import fetch_transcript
 from rag import has_rag_data, store_transcript
 
 # --------------------------------------------------
