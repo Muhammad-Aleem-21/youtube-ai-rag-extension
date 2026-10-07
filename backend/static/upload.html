@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chat with your video</title>
+<style>
+  :root { --bg:#fff; --fg:#111; --card:#f3f4f6; --accent:#2563eb; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111; --fg:#eee; --card:#1f2023; --accent:#60a5fa; } }
+  body { font-family: system-ui, sans-serif; background:var(--bg); color:var(--fg); max-width:720px; margin:0 auto; padding:24px 16px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:10px 16px; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  input[type=text] { flex:1; padding:10px; border-radius:8px; border:1px solid #888; background:var(--card); color:var(--fg); }
+  #status { margin:12px 0; min-height:1.5em; }
+  #limits { font-size:.85em; opacity:.7; }
+  #tbox { white-space:pre-wrap; background:var(--card); padding:12px; border-radius:8px; max-height:360px; overflow:auto; font-family:inherit; }
+  #log { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
+  .msg { padding:10px 12px; border-radius:10px; background:var(--card); white-space:pre-wrap; }
+  .user { align-self:flex-end; background:var(--accent); color:#fff; }
+  .src { font-size:.85em; opacity:.8; margin-top:6px; }
+  .src a { color:var(--accent); }
+</style>
+</head>
+<body>
+  <h1>🎬 Chat with your video</h1>
+  <p>Upload a video (MP4, MOV, MKV, WebM) or audio file. It will be transcribed, then you can ask questions about it.</p>
+  <div id="limits"></div>
+
+  <div class="row">
+    <input type="file" id="file" accept=".mp4,.mov,.mkv,.webm,.mp3,.m4a,.wav,video/*,audio/*">
+    <button id="upload">Upload &amp; transcribe</button>
+  </div>
+  <div id="status"></div>
+
+  <div id="chat" hidden>
+    <div class="row">
+      <button id="showT">Show transcript</button>
+      <button id="dlT">Download .txt</button>
+    </div>
+    <pre id="tbox" hidden></pre>
+
+    <div id="log"></div>
+    <div class="row">
+      <input type="text" id="q" placeholder="Ask something about the video...">
+      <button id="send">Send</button>
+    </div>
+  </div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let videoId = null;
+let jobId = null;
+let history = [];
+let maxMb = null;
+
+const setStatus = (t) => ($("status").textContent = t);
+const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+fetch("/upload-limits")
+  .then((r) => r.json())
+  .then((d) => {
+    maxMb = d.max_upload_mb;
+    $("limits").textContent =
+      `Max file size: ${d.max_upload_mb >= 1024 ? (d.max_upload_mb / 1024).toFixed(1) + " GB" : d.max_upload_mb + " MB"} · ` +
+      `Max length: ${d.max_duration_min} minutes`;
+  })
+  .catch(() => {});
+
+$("upload").onclick = () => {
+  const f = $("file").files[0];
+  if (!f) return setStatus("Choose a file first.");
+  if (maxMb && f.size > maxMb * 1024 * 1024) {
+    return setStatus(`❌ File is too large (max ${maxMb} MB).`);
+  }
+
+  const form = new FormData();
+  form.append("file", f);
+
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "/upload-video");
+  xhr.upload.onprogress = (e) => {
+    if (e.lengthComputable) setStatus(`Uploading... ${Math.round((e.loaded / e.total) * 100)}%`);
+  };
+  xhr.onload = () => {
+    let d = {};
+    try { d = JSON.parse(xhr.responseText); } catch {}
+    if (xhr.status !== 200) {
+      $("upload").disabled = false;
+      return setStatus("❌ " + (d.detail || "Upload failed."));
+    }
+    poll(d.job_id);
+  };
+  xhr.onerror = () => { $("upload").disabled = false; setStatus("❌ Upload failed."); };
+
+  $("upload").disabled = true;
+  $("chat").hidden = true;
+  $("tbox").hidden = true;
+  videoId = null;
+  jobId = null;
+  history = [];
+  $("log").innerHTML = "";
+  xhr.send(form);
+};
+
+async function poll(id) {
+  try {
+    const r = await fetch("/upload-status/" + id);
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || "Status check failed.");
+
+    if (d.status === "done") {
+      videoId = d.video_id;
+      jobId = id;
+      $("upload").disabled = false;
+      $("chat").hidden = false;
+      return setStatus(`✅ Ready (${d.segments} segments). Ask a question below.`);
+    }
+    if (d.status === "error") {
+      $("upload").disabled = false;
+      return setStatus("❌ " + d.message);
+    }
+    setStatus("⏳ " + d.message);
+  } catch (e) {
+    setStatus("⏳ Reconnecting...");
+  }
+  setTimeout(() => poll(id), 2000);
+}
+
+function add(text, cls) {
+  const el = document.createElement("div");
+  el.className = "msg " + cls;
+  el.textContent = text;
+  $("log").appendChild(el);
+  el.scrollIntoView({ block: "end" });
+  return el;
+}
+
+async function ask() {
+  const q = $("q").value.trim();
+  if (!q || !videoId) return;
+  $("q").value = "";
+  add(q, "user");
+  const el = add("⏳ Thinking...", "ai");
+
+  try {
+    const r = await fetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ video_id: videoId, question: q, history }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      throw new Error(
+        d.detail === "TRANSCRIPT_NEEDED"
+          ? "The server restarted and forgot this video. Please upload it again."
+          : d.detail || "Request failed."
+      );
+    }
+
+    history.push({ role: "user", content: q }, { role: "assistant", content: d.answer });
+    el.textContent = d.answer;
+
+    (d.sources || []).forEach((s) => {
+      const p = document.createElement("div");
+      p.className = "src";
+      if (s.type === "web") {
+        const a = document.createElement("a");
+        a.href = s.url; a.target = "_blank"; a.rel = "noopener noreferrer";
+        a.textContent = s.title || s.url;
+        p.append("🌐 ", a);
+      } else {
+        p.textContent = `▶ Source at ${fmt(s.start)} – ${fmt(s.end)}`;
+      }
+      el.appendChild(p);
+    });
+  } catch (e) {
+    el.textContent = "❌ " + e.message;
+  }
+}
+
+/* ---------- full transcript on demand ---------- */
+
+let transcriptText = null;
+
+async function getTranscriptText() {
+  if (transcriptText) return transcriptText;
+  const r = await fetch("/upload-transcript/" + jobId);
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.detail || "Could not load the transcript.");
+  transcriptText =
+    `Language: ${d.language}\n\n` +
+    d.segments.map((s) => `[${fmt(s.start)}] ${s.text}`).join("\n");
+  return transcriptText;
+}
+
+$("showT").onclick = async () => {
+  const box = $("tbox");
+  if (!box.hidden) {
+    box.hidden = true;
+    $("showT").textContent = "Show transcript";
+    return;
+  }
+  try {
+    box.textContent = await getTranscriptText();
+    box.hidden = false;
+    $("showT").textContent = "Hide transcript";
+  } catch (e) { setStatus("❌ " + e.message); }
+};
+
+$("dlT").onclick = async () => {
+  try {
+    const text = await getTranscriptText();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+    a.download = "transcript.txt";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  } catch (e) { setStatus("❌ " + e.message); }
+};
+
+// reset the cached transcript whenever a new file is uploaded
+const _origUpload = $("upload").onclick;
+$("upload").onclick = (e) => { transcriptText = null; _origUpload(e); };
+
+$("send").onclick = ask;
+$("q").addEventListener("keydown", (e) => { if (e.key === "Enter") ask(); });
+</script>
+</body>
+</html>
